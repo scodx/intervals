@@ -11,5 +11,8 @@
   ],
   "require": {
     "dibi/dibi": "^4.0"
+  },
+  "autoload": {
+    "psr-4": {"scodx\\": "src/"}
   }
 }
