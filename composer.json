@@ -1,0 +1,15 @@
+{
+  "name": "scodx/intervals",
+  "description": "Price on date intervals",
+  "minimum-stability": "beta",
+  "license": "proprietary",
+  "authors": [
+    {
+      "name": "Oscar Sanchez",
+      "email": "oscar.exe@gmail.com"
+    }
+  ],
+  "require": {
+    "dibi/dibi": "^4.0"
+  }
+}
