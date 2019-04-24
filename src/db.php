@@ -6,8 +6,9 @@ namespace scodx;
 
 use Doctrine\DBAL\Configuration;
 use Doctrine\DBAL\DriverManager;
+use Doctrine\DBAL\FetchMode;
 
-class db extends manager
+class db
 {
   private $host = 'localhost';
   private $username = 'root';
@@ -46,26 +47,43 @@ class db extends manager
   {
     $statement = $this->conn->prepare($sql);
     $statement->execute($params);
-    return $statement->fetchAll();
+    return $statement->fetchAll(FetchMode::STANDARD_OBJECT);
   }
 
   public function processOperations(Array $updates, Array $inserts, Array $deletes)
   {
-    $conn = $this->conn
+    $conn = $this->conn;
     $conn->beginTransaction();
     try{
 
       foreach ($updates as $update) {
-        $interval_id = $update['interval_id'];
-        unset($update['interval_id']);
-        $conn->update('intervals', )
+        $conn->update('intervals', $update['data'], $update[ 'id']);
       }
 
+      // even though multiple inserts are possible in mysql it can't be done in doctrine dbal with their helpers.
+      foreach ($inserts as $insert) {
+        $conn->insert('intervals', $insert);
+      }
+
+      $stmt = $conn->executeQuery('DELETE FROM intervals WHERE interval_id IN (?)',
+        array($deletes),
+        array(\Doctrine\DBAL\Connection::PARAM_INT_ARRAY)
+      );
+
       $conn->commit();
+
     } catch (\Exception $e) {
       $conn->rollBack();
       throw $e;
     }
+  }
+
+  public function generateUpdateArray(Array $data, $intervalId)
+  {
+    return [
+      'data' => $data,
+      'id' => ['interval_id' => $intervalId],
+    ];
   }
 
 

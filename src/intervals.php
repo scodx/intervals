@@ -23,6 +23,7 @@ class intervals
 
   public function add($startDate, $endDate, $price)
   {
+    $db = $this->db;
     $collisions = $this->search($startDate, $endDate);
     $lastCollisionIndex = count($collisions)-1;
     // converting startDate to timestamp
@@ -51,11 +52,10 @@ class intervals
       // if end date is after the collisions
       if ($endDateTimestamp >= $collisionEndDateTimestamp) {
         // delete all but last one, update that one
-        $updatedIntervals[] = [
-          'interval_id' => $collisionEnd->interval_id,
+        $updatedIntervals[] = $db->generateUpdateArray([
           'date_start' => $startDate,
           'price' => $newPrice,
-        ];
+        ], $collisionEnd->interval_id);
       } else {
         // if the end date is before the collisions we need to create a new interval
         $newIntervals[] = [
@@ -65,7 +65,7 @@ class intervals
         ];
         $updatedIntervals[] = [
           'interval_id' => $collisionEnd->interval_id,
-          'date_start' => date('Y-m-d', strtotime('+1 Day', $endDateTimestamp)),
+          'date_start' => $this->formatDateStr('+1 Day', $endDateTimestamp),
           'price' => $collisionEnd->price,
         ];
       }
@@ -81,10 +81,10 @@ class intervals
       if ($endDateTimestamp >= $collisionEndDateTimestamp) {
 
         if ($newPrice != $collisionStart->price) {
-          $updatedIntervals[] = [
-            'interval_id' => $collisionStart->interval_id,
-            'date_end' => date('Y-m-d', strtotime('-1 Day', $startDateTimestamp)),
-          ];
+          $updatedIntervals[] = $db->generateUpdateArray([
+//            'date_end' => date('Y-m-d', strtotime('-1 Day', $startDateTimestamp)),
+            'date_end' => $this->formatDateStr('-1 Day', $startDateTimestamp),
+          ], $collisionStart->interval_id);
           $updatedIntervals[] = [
             'interval_id' => $collisionEnd->interval_id,
             'date_start' => $startDate,
@@ -96,10 +96,9 @@ class intervals
           unset($collisionsIds[$collisionEnd->interval_id]);
 
         } else {
-          $updatedIntervals[] = [
-            'interval_id' => $collisionStart->interval_id,
+          $updatedIntervals[] = $db->generateUpdateArray([
             'date_end' => $endDate,
-          ];
+          ], $collisionStart->interval_id);
           unset($collisionsIds[$collisionStart->interval_id]);
         }
 
@@ -112,15 +111,15 @@ class intervals
           'date_end' => $endDate,
           'price' => $newPrice,
         ];
-        $updatedIntervals[] = [
-          'interval_id' => $collisionStart->interval_id,
-          'date_end' => date('Y-m-d', strtotime('-1 Day', $startDateTimestamp)),
-        ];
-        $updatedIntervals[] = [
-          'interval_id' => $collisionEnd->interval_id,
-          'date_start' => date('Y-m-d', strtotime('+1 Day', $endDateTimestamp)),
+        $updatedIntervals[] = $db->generateUpdateArray([
+//          'date_end' => date('Y-m-d', strtotime('-1 Day', $startDateTimestamp)),
+          'date_end' => $this->formatDateStr('-1 Day', $startDateTimestamp),
+        ], $collisionStart->interval_id);
+        $updatedIntervals[] = $db->generateUpdateArray([
+//          'date_start' => date('Y-m-d', strtotime('+1 Day', $endDateTimestamp)),
+          'date_start' => $this->formatDateStr('+1 Day', $endDateTimestamp),
           'price' => $collisionEnd->price,
-        ];
+        ], $collisionEnd->interval_id);
         unset($collisionsIds[$collisionStart->interval_id]);
         unset($collisionsIds[$collisionEnd->interval_id]);
         $deletedIntervals = array_keys($collisionsIds);
@@ -129,6 +128,7 @@ class intervals
     }
 
 //    $this->processIntervals($updatedIntervals, $newIntervals, $deletedIntervals);
+    $db->processOperations($updatedIntervals, $newIntervals, $deletedIntervals);
     return [
       'collisions' => $collisions,
       'updatedIntervals' => $updatedIntervals,
@@ -137,49 +137,9 @@ class intervals
     ];
   }
 
-  public function processIntervals(Array $updates, Array $inserts, Array $deletes)
+  private function formatDateStr($dateString, $timestamp)
   {
-
-    $this->db->beginTransaction();
-
-    try {
-      // making the updates
-      foreach ($updates as $update) {
-        $interval_id = $update['interval_id'];
-        unset($update['interval_id']);
-        $updatesCursor = $this->db->prepare('UPDATE intervals SET', $update, 'WHERE interval_id = ?', $interval_id);
-        $updatesCursor->execute();
-
-        $data = [
-          'name' => $name,
-          'surname' => $surname,
-          'sex' => $sex,
-          'id' => $id,
-        ];
-        $sql = "UPDATE intervals SET date_start=:name, date_end=:surname, price=:sex WHERE id=:id";
-        $stmt= $dpo->prepare($sql);
-        $stmt->execute($data);
-
-
-      }
-
-      var_dump(\dibi::$sql);
-      // making the inserts
-      $this->db->insert('intervals', $inserts);
-//var_dump($inserts);
-      var_dump(\dibi::$sql);
-      $this->db->query('DELETE FROM intervals WHERE interval_id in (%i)', $deletes);
-      var_dump(\dibi::$sql);
-//      $this->db->commit();
-
-    } catch (\Exception $e) {
-      $this->db->rollBack();
-      echo 'Excepción capturada: '.$e->getMessage()."\n";
-    }
-
-
-
+    return date('Y-m-d', strtotime($dateString, $timestamp));
   }
-
 
 }
