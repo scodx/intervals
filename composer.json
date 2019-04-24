@@ -10,7 +10,8 @@
     }
   ],
   "require": {
-    "dibi/dibi": "^4.0"
+    "symfony/http-foundation": "4.2.x-dev",
+    "doctrine/dbal": "^2.9"
   },
   "autoload": {
     "psr-4": {"scodx\\": "src/"}
