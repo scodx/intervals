@@ -1,8 +1,6 @@
 <?php
 
-
 namespace scodx;
-
 
 use Doctrine\DBAL\Configuration;
 use Doctrine\DBAL\DriverManager;
@@ -18,6 +16,14 @@ class db
 
   private $conn;
 
+  /**
+   * @return \Doctrine\DBAL\Connection
+   */
+  public function getConn ()
+  {
+    return $this->conn;
+  }
+
   public function __construct ()
   {
 
@@ -32,13 +38,39 @@ class db
     );
     $this->conn = DriverManager::getConnection($connectionParams, $config);
   }
+  
+  public function searchCollisions($startDate, $endDate, $price)
+  {
+    return $this->fetchAll("
+      SELECT interval_id, date_start, date_end, price
+      FROM intervals as i
+      WHERE (
+            (date_start BETWEEN :startDate AND :endDate)
+            or (date_end BETWEEN :startDate AND :endDate)
+          ) or (
+            (:startDate BETWEEN date_start AND date_end)
+            or (:endDate BETWEEN date_start AND date_end)
+          ) or (
+              date_end = DATE_SUB(:startDate, INTERVAL 1 DAY) AND price = :price
+          ) or (
+              date_start = DATE_ADD(:endDate, INTERVAL 1 DAY) AND price = :price
+          )
+      ORDER BY date_start ", 
+      [':startDate' => $startDate, ':endDate' => $endDate, ':price' => $price]);
+  }
 
   public function search($startDate, $endDate)
   {
     return $this->fetchAll(
       "SELECT interval_id, date_start, date_end, price FROM intervals 
-      WHERE (date_start BETWEEN :startDate AND :endDate	)
-        or (date_end BETWEEN :startDate AND :endDate	);",
+      WHERE (
+            (date_start BETWEEN :startDate AND :endDate	)
+            or (date_end BETWEEN :startDate AND :endDate	)
+          ) or (
+            (:startDate between date_start and date_end)
+            or (:endDate between date_start and date_end)
+          )
+      ORDER BY date_start",
       [':startDate' => $startDate, ':endDate' => $endDate,]
     );
   }
@@ -57,7 +89,7 @@ class db
     try{
 
       foreach ($updates as $update) {
-        $conn->update('intervals', $update['data'], $update[ 'id']);
+        $conn->update('intervals', $update['data'], $update['id']);
       }
 
       // even though multiple inserts are possible in mysql it can't be done in doctrine dbal with their helpers.
@@ -86,5 +118,9 @@ class db
     ];
   }
 
+  public function deleteAll()
+  {
+    return $this->getConn()->query('DELETE FROM intervals');
+  }
 
 }
